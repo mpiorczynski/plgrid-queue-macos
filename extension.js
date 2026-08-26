@@ -14,15 +14,11 @@ export default class PlgridQueueExtension extends Extension {
         this._indicator = new Indicator(this._settings, () => this.openPreferences());
 
         const panelBoxName = this._settings.get_string('panel-box');
-        let initialIndex = this._settings.get_int('panel-index');
-        if (panelBoxName === 'left' && initialIndex <= 0) {
-            initialIndex = 1;
-        }
 
         Main.panel.addToStatusArea(
             this.uuid,
             this._indicator,
-            initialIndex,
+            -1,
             panelBoxName
         );
 
@@ -56,18 +52,19 @@ export default class PlgridQueueExtension extends Extension {
             parent.remove_child(container);
         }
 
-        const totalChildren = box.get_n_children();
-        let targetIndex = this._settings.get_int('panel-index');
-
         if (panelBoxName === 'left') {
-            // Keep workspace indicators / Activities on the far left.
-            // Place indicator after them (at least index 1, or at the end of leftBox).
-            targetIndex = targetIndex <= 0 ? totalChildren : Math.max(1, Math.min(targetIndex, totalChildren));
+            // Guarantee that the workspace indicator / Activities button stays at the far left.
+            const activities = Main.panel.statusArea['activities']?.container;
+            if (activities && box.contains(activities)) {
+                box.insert_child_above(container, activities);
+            } else {
+                box.add_child(container);
+            }
         } else {
-            targetIndex = Math.min(targetIndex, totalChildren);
+            const totalChildren = box.get_n_children();
+            const targetIndex = Math.min(this._settings.get_int('panel-index'), totalChildren);
+            box.insert_child_at_index(container, targetIndex);
         }
-
-        box.insert_child_at_index(container, targetIndex);
     }
 
     disable() {
