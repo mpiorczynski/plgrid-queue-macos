@@ -40,6 +40,8 @@ pack: schemas
 
 test: schemas
 	gjs -m test/test_parser.js
+	gjs -m test/test_reposition.js
+	gjs -m test/test_job_click_persistence.js
 	gjs -m test/test_suite.js
 	gjs -m test/test_single_host.js
 
