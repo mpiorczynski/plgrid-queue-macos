@@ -30,13 +30,14 @@ export const STATE_NAMES = {
 };
 
 /**
- * Parse stdout of `squeue --me` for a given host.
+ * Parse stdout of `squeue --me -o '%i|%P|%j|%u|%t|%M|%D|%R'` for a given host.
  *
- * Example header & line:
- *              JOBID PARTITION     NAME     USER ST       TIME  NODES NODELIST(REASON)
- *            3072233 plgrid-gp reinforc plguser  PD       0:00      1 (Priority)
+ * Example line:
+ *              3072233|plgrid-gp|reinforcement-training|plguser|PD|0:00|1|(Priority)
  *
- * @param {string} stdout - Output from squeue --me
+ * Also keeps legacy support for the default whitespace-separated squeue output.
+ *
+ * @param {string} stdout - Output from squeue
  * @param {string} host - Host name alias
  * @returns {Array<Object>} List of parsed job objects
  */
@@ -55,16 +56,17 @@ export function parseSqueueOutput(stdout, host) {
             continue;
         }
 
-        const tokens = line.split(/\s+/);
+        const isPiped = line.includes('|');
+        const tokens = isPiped ? line.split('|') : line.split(/\s+/);
         if (tokens.length >= 7) {
             const jobId = tokens[0];
-            const partition = tokens[1];
+            const partition = isPiped ? tokens[1].replace(/\*$/, '') : tokens[1];
             const name = tokens[2];
             const user = tokens[3];
             const state = tokens[4].toUpperCase();
             const time = tokens[5];
             const nodes = tokens[6];
-            const reasonOrNode = tokens.slice(7).join(' ') || '';
+            const reasonOrNode = tokens.slice(7).join(isPiped ? '|' : ' ') || '';
 
             const isRunning = ['R', 'CG', 'CF'].includes(state);
             const isQueued = ['PD', 'Q', 'RH', 'RS', 'RQ', 'RF'].includes(state);
@@ -115,7 +117,7 @@ export class SlurmService {
                         '-o', 'BatchMode=yes',
                         '-o', `ConnectTimeout=${timeoutSec}`,
                         host,
-                        'squeue --me',
+                        `squeue --me -o '%i|%P|%j|%u|%t|%M|%D|%R'`,
                     ],
                     flags: Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE,
                 });

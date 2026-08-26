@@ -25,3 +25,34 @@ if (queued.length !== 1) {
 }
 
 console.log('✓ All parser test assertions passed!');
+
+console.log('--- Piped squeue format (full job names) ---');
+const pipedSample = `JOBID|PARTITION|NAME|USER|ST|TIME|NODES|NODELIST(REASON)
+3072240|plgrid-gp*|reinforcement-training-job-with-a-very-long-name|plguser|R|2:30:00|4|n1,n2,n3,n4
+3072241|plgrid-gp*|short|plguser|PD|0:00|1|(Priority)
+`;
+
+const pipedJobs = parseSqueueOutput(pipedSample, 'athena');
+console.log(`Parsed ${pipedJobs.length} piped jobs.`);
+
+if (pipedJobs.length !== 2) {
+    throw new Error(`Expected 2 piped jobs, got ${pipedJobs.length}`);
+}
+
+if (pipedJobs[0].name !== 'reinforcement-training-job-with-a-very-long-name') {
+    throw new Error(`Expected full job name, got '${pipedJobs[0].name}'`);
+}
+
+if (pipedJobs[0].partition !== 'plgrid-gp') {
+    throw new Error(`Expected default-partition star stripped, got '${pipedJobs[0].partition}'`);
+}
+
+if (pipedJobs[0].reasonOrNode !== 'n1,n2,n3,n4') {
+    throw new Error(`Expected nodelist in reasonOrNode, got '${pipedJobs[0].reasonOrNode}'`);
+}
+
+if (!pipedJobs[0].isRunning || !pipedJobs[1].isQueued) {
+    throw new Error('Piped state flags wrong');
+}
+
+console.log('✓ All piped-format parser assertions passed!');
