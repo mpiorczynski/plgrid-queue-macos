@@ -9,6 +9,7 @@ import St from 'gi://St';
 import GLib from 'gi://GLib';
 import Clutter from 'gi://Clutter';
 
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
@@ -26,6 +27,7 @@ class Indicator extends PanelMenu.Button {
         this._openPreferences = openPreferences;
         this._slurmService = new SlurmService();
         this._timeoutId = null;
+        this._idleRepositionId = null;
         this._isRefreshing = false;
         this._lastData = null;
 
@@ -59,7 +61,16 @@ class Indicator extends PanelMenu.Button {
             this._settings.connect('changed::refresh-interval', () => this._restartTimer()),
             this._settings.connect('changed::hosts', () => this.refresh()),
             this._settings.connect('changed::connect-timeout', () => this.refresh()),
+            this._settings.connect('changed::panel-box', () => this.repositionInPanel()),
+            this._settings.connect('changed::panel-index', () => this.repositionInPanel()),
         ];
+
+        // Ensure proper positioning after panel hierarchy is set up
+        this._idleRepositionId = GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+            this._idleRepositionId = null;
+            this.repositionInPanel();
+            return GLib.SOURCE_REMOVE;
+        });
 
         // Initial menu structure
         this._buildMenu();
@@ -67,6 +78,36 @@ class Indicator extends PanelMenu.Button {
         // Start polling
         this.refresh();
         this._restartTimer();
+    }
+
+    repositionInPanel() {
+        const container = this.container;
+        if (!container) return;
+
+        const panelBoxName = this._settings.get_string('panel-box');
+        const boxes = {
+            left: Main.panel._leftBox,
+            center: Main.panel._centerBox,
+            right: Main.panel._rightBox,
+        };
+
+        const targetBox = boxes[panelBoxName] ?? Main.panel._rightBox;
+        const currentParent = container.get_parent();
+
+        if (currentParent) {
+            currentParent.remove_child(container);
+        }
+
+        if (panelBoxName === 'left') {
+            // Guarantee that the workspace indicator (activities) stays on the far left.
+            // Appending our container places it strictly to the right of the workspace switcher.
+            targetBox.add_child(container);
+        } else {
+            const count = targetBox.get_n_children();
+            const requestedIndex = this._settings.get_int('panel-index');
+            const targetIndex = Math.min(requestedIndex, count);
+            targetBox.insert_child_at_index(container, targetIndex);
+        }
     }
 
     _applyIconVisibility() {
@@ -445,6 +486,11 @@ class Indicator extends PanelMenu.Button {
         if (this._timeoutId) {
             GLib.source_remove(this._timeoutId);
             this._timeoutId = null;
+        }
+
+        if (this._idleRepositionId) {
+            GLib.source_remove(this._idleRepositionId);
+            this._idleRepositionId = null;
         }
 
         if (this._settingsSignals) {
