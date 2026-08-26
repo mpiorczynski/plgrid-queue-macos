@@ -39,6 +39,10 @@
     font-size: 0.95em;
 }
 
+.plgrid-host-emoji {
+    font-size: 14px;
+}
+
 .plgrid-host-counts {
     font-size: 0.82em;
     font-weight: normal;
@@ -102,6 +106,7 @@
 .plgrid-job-name {
     font-weight: bold;
     font-size: 0.9em;
+    max-width: 220px;
 }
 
 .plgrid-job-detail-chip {
@@ -109,6 +114,28 @@
     padding: 1px 5px;
     border-radius: 3px;
     font-size: 0.8em;
+}
+
+.plgrid-job-click-area {
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+}
+
+.plgrid-job-click-area:hover {
+    background: none;
+}
+
+/* Tooltip */
+.plgrid-tooltip {
+    background-color: rgba(0, 0, 0, 0.92);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 0.85em;
+    font-weight: normal;
 }
 
 /* Empty / Info / Error States */

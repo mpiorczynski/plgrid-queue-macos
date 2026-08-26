@@ -8,6 +8,7 @@ import GObject from 'gi://GObject';
 import St from 'gi://St';
 import GLib from 'gi://GLib';
 import Clutter from 'gi://Clutter';
+import Pango from 'gi://Pango';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
@@ -16,7 +17,12 @@ import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.j
 
 import { SlurmService } from './slurmService.js';
 
-const SPIN_DURATION_MS = 1000;
+const ACTION_BUTTON_SIZE = 34;
+
+const HOST_EMOJIS = {
+    helios: '☀️',
+    athena: '🦉',
+};
 
 export const Indicator = GObject.registerClass(
 class Indicator extends PanelMenu.Button {
@@ -43,7 +49,7 @@ class Indicator extends PanelMenu.Button {
         });
 
         this._label = new St.Label({
-            text: 'R: -; Q: -',
+            text: 'R: -  Q: -',
             style_class: 'plgrid-panel-label',
             y_align: Clutter.ActorAlign.CENTER,
         });
@@ -111,30 +117,17 @@ class Indicator extends PanelMenu.Button {
     }
 
     _setSpinning(spinning) {
-        if (!this._refreshIcon) return;
-        this._refreshIcon.remove_all_transitions();
         if (this._refreshButton) {
             this._refreshButton.reactive = !spinning;
         }
-        if (!spinning) {
-            this._refreshIcon.rotation_angle_z = 0;
-            return;
-        }
-        this._refreshIcon.set_pivot_point(0.5, 0.5);
-        this._refreshIcon.ease({
-            rotation_angle_z: 360,
-            duration: SPIN_DURATION_MS,
-            mode: Clutter.AnimationMode.LINEAR,
-            repeatCount: -1,
-        });
     }
 
     _updateUI(data) {
         // Update top bar text: "R: {running}; Q: {queued}"
         if (data.hasErrors && data.runningTotal === 0 && data.queuedTotal === 0 && data.hosts.every(h => !h.ok)) {
-            this._label.set_text('R: ?; Q: ?');
+            this._label.set_text('R: ?  Q: ?');
         } else {
-            this._label.set_text(`R: ${data.runningTotal}; Q: ${data.queuedTotal}`);
+            this._label.set_text(`R: ${data.runningTotal}  Q: ${data.queuedTotal}`);
         }
 
         // Rebuild popup menu contents
@@ -149,6 +142,9 @@ class Indicator extends PanelMenu.Button {
 
     _buildMenu() {
         this.menu.removeAll();
+        this.menu.connect('open-state-changed', (_, open) => {
+            if (!open) this._hideTooltip();
+        });
 
         // Header Section
         this._headerSection = new PopupMenu.PopupMenuSection();
@@ -189,14 +185,18 @@ class Indicator extends PanelMenu.Button {
         this._refreshIcon = new St.Icon({
             icon_name: 'view-refresh-symbolic',
             style_class: 'popup-menu-icon',
+            x_align: Clutter.ActorAlign.CENTER,
+            y_align: Clutter.ActorAlign.CENTER,
         });
-        this._refreshIcon.set_pivot_point(0.5, 0.5);
 
         this._refreshButton = new St.Button({
             child: this._refreshIcon,
             style_class: 'button plgrid-action-btn',
             can_focus: true,
             accessible_name: _('Refresh now'),
+            width: ACTION_BUTTON_SIZE,
+            height: ACTION_BUTTON_SIZE,
+            y_align: Clutter.ActorAlign.CENTER,
         });
         this._refreshButton.connect('clicked', () => {
             this.refresh();
@@ -205,14 +205,19 @@ class Indicator extends PanelMenu.Button {
 
         if (this._openPreferences) {
             const settingsIcon = new St.Icon({
-                icon_name: 'emblem-system-symbolic',
+                icon_name: 'org.gnome.Settings-symbolic',
                 style_class: 'popup-menu-icon',
+                x_align: Clutter.ActorAlign.CENTER,
+                y_align: Clutter.ActorAlign.CENTER,
             });
             const settingsButton = new St.Button({
                 child: settingsIcon,
                 style_class: 'button plgrid-action-btn',
                 can_focus: true,
                 accessible_name: _('Settings'),
+                width: ACTION_BUTTON_SIZE,
+                height: ACTION_BUTTON_SIZE,
+                y_align: Clutter.ActorAlign.CENTER,
             });
             settingsButton.connect('clicked', () => {
                 this.menu.close();
@@ -288,13 +293,24 @@ class Indicator extends PanelMenu.Button {
             y_align: Clutter.ActorAlign.CENTER,
         });
 
-        const hostIcon = new St.Icon({
-            icon_name: hostResult.ok ? 'computer-symbolic' : 'dialog-warning-symbolic',
-            icon_size: 14,
-            style_class: 'plgrid-panel-icon',
-        });
-
         const hostCapitalized = hostResult.host.charAt(0).toUpperCase() + hostResult.host.slice(1);
+        const emoji = HOST_EMOJIS[hostResult.host.toLowerCase()] ?? '';
+
+        let hostIcon;
+        if (hostResult.ok && emoji) {
+            hostIcon = new St.Label({
+                text: emoji,
+                style_class: 'plgrid-host-emoji',
+                y_align: Clutter.ActorAlign.CENTER,
+            });
+        } else {
+            hostIcon = new St.Icon({
+                icon_name: hostResult.ok ? 'computer-symbolic' : 'dialog-warning-symbolic',
+                icon_size: 14,
+                style_class: 'plgrid-panel-icon',
+            });
+        }
+
         const hostTitle = new St.Label({
             text: hostCapitalized,
             style_class: 'plgrid-host-title',
@@ -358,8 +374,8 @@ class Indicator extends PanelMenu.Button {
 
     _buildJobItem(job) {
         const item = new PopupMenu.PopupBaseMenuItem({
-            reactive: true,
-            can_focus: true,
+            reactive: false,
+            can_focus: false,
             style_class: 'plgrid-job-item',
         });
 
@@ -394,6 +410,7 @@ class Indicator extends PanelMenu.Button {
             style_class: 'plgrid-job-name',
             y_align: Clutter.ActorAlign.CENTER,
         });
+        nameLabel.clutter_text.ellipsize = Pango.EllipsizeMode.END;
 
         const idLabel = new St.Label({
             text: `#${job.jobId}`,
@@ -438,12 +455,77 @@ class Indicator extends PanelMenu.Button {
 
         mainContainer.add_child(topRow);
         mainContainer.add_child(subRow);
-        item.add_child(mainContainer);
+
+        const clickButton = new St.Button({
+            style_class: 'plgrid-job-click-area',
+            x_expand: true,
+            can_focus: true,
+            child: mainContainer,
+        });
+        clickButton.connect('clicked', () => this._copyJobToClipboard(clickButton, job));
+        clickButton.connect('enter-event', () => this._showTooltip(nameLabel, `${job.name} #${job.jobId}`));
+        clickButton.connect('leave-event', () => this._hideTooltip());
+
+        item.connect('destroy', () => this._hideTooltip());
+        item.add_child(clickButton);
 
         this._contentSection.addMenuItem(item);
     }
 
+    _copyJobToClipboard(item, job) {
+        St.Clipboard.get_default().set_text(
+            St.ClipboardType.CLIPBOARD,
+            `${job.jobId}`
+        );
+        this._showTooltip(item, _('ID copied to clipboard'));
+        this._tooltipTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 2000, () => {
+            this._tooltipTimeoutId = null;
+            this._hideTooltip();
+            return GLib.SOURCE_REMOVE;
+        });
+    }
+
+    _showTooltip(actor, text) {
+        this._hideTooltip();
+
+        const tooltip = new St.Label({
+            text,
+            style_class: 'plgrid-tooltip',
+            opacity: 0,
+            reactive: false,
+        });
+        Main.uiGroup.add_child(tooltip);
+
+        const [, natWidth, , natHeight] = tooltip.get_preferred_size();
+        const [itemX, itemY] = actor.get_transformed_position();
+        const [itemWidth] = actor.get_transformed_size();
+
+        const x = Math.max(8, itemX + Math.floor((itemWidth - natWidth) / 2));
+        const y = Math.max(8, itemY - natHeight - 6);
+        tooltip.set_position(x, y);
+        tooltip.ease({
+            opacity: 255,
+            duration: 150,
+            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+        });
+
+        this._tooltip = tooltip;
+    }
+
+    _hideTooltip() {
+        if (this._tooltipTimeoutId) {
+            GLib.source_remove(this._tooltipTimeoutId);
+            this._tooltipTimeoutId = null;
+        }
+        if (this._tooltip) {
+            this._tooltip.destroy();
+            this._tooltip = null;
+        }
+    }
+
     destroy() {
+        this._hideTooltip();
+
         if (this._timeoutId) {
             GLib.source_remove(this._timeoutId);
             this._timeoutId = null;
@@ -459,10 +541,6 @@ class Indicator extends PanelMenu.Button {
         if (this._slurmService) {
             this._slurmService.cancelInFlight();
             this._slurmService = null;
-        }
-
-        if (this._refreshIcon) {
-            this._refreshIcon.remove_all_transitions();
         }
 
         super.destroy();
