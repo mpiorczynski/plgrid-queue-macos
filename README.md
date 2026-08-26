@@ -18,12 +18,12 @@ A modern GNOME Shell extension that displays running and queued Slurm jobs acros
   - "Preferences" button for quick access to extension settings.
 - **Lightweight SSH Execution**:
   - Works with your existing `~/.ssh/config`.
-  - Runs one-off `ssh -o BatchMode=yes <host> "squeue --me"` calls asynchronously every 5 minutes (default).
+  - Runs one-off `ssh -o BatchMode=yes <host> "squeue --me"` calls asynchronously every 1 minute (default).
   - **No persistent background connections** — only executes single short-lived commands.
   - Non-blocking: will never freeze or slow down your GNOME Shell UI.
 - **Customizable via Preferences (Libadwaita)**:
   - Cluster host aliases (comma-separated, e.g. `athena, helios`).
-  - Polling interval (in seconds, default: 300s = 5 minutes).
+  - Polling interval (in seconds, default: 60s = 1 minute).
   - SSH connection timeout (in seconds, default: 5s).
   - Toggle top-bar icon visibility.
   - Panel box position (Left, Center, Right).

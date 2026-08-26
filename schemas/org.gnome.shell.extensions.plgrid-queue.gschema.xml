@@ -8,9 +8,9 @@
     </key>
 
     <key name="refresh-interval" type="i">
-      <default>300</default>
+      <default>60</default>
       <summary>Refresh interval in seconds</summary>
-      <description>How often to poll hosts via SSH squeue (default: 300s = 5 minutes).</description>
+      <description>How often to poll hosts via SSH squeue (default: 60s = 1 minute).</description>
     </key>
 
     <key name="connect-timeout" type="i">

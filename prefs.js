@@ -61,7 +61,7 @@ export default class PlgridQueuePreferences extends ExtensionPreferences {
         // Refresh Interval SpinRow
         const refreshRow = new Adw.SpinRow({
             title: _('Refresh Interval (seconds)'),
-            subtitle: _('Interval between squeue queries (default: 300s = 5 min)'),
+            subtitle: _('Interval between squeue queries (default: 60s = 1 min)'),
             adjustment: new Gtk.Adjustment({
                 lower: 30,
                 upper: 3600,
