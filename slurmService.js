@@ -34,7 +34,7 @@ export const STATE_NAMES = {
  *
  * Example header & line:
  *              JOBID PARTITION     NAME     USER ST       TIME  NODES NODELIST(REASON)
- *            3072233 plgrid-gp reinforc plgjpnie PD       0:00      1 (Priority)
+ *            3072233 plgrid-gp reinforc plguser  PD       0:00      1 (Priority)
  *
  * @param {string} stdout - Output from squeue --me
  * @param {string} host - Host name alias

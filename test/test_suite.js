@@ -2,11 +2,11 @@ import { parseSqueueOutput, SlurmService, STATE_NAMES } from '../slurmService.js
 
 console.log('--- Test 1: Slurm Service Parser with multiple job types ---');
 const sampleSlurmOutput = `             JOBID PARTITION     NAME     USER ST       TIME  NODES NODELIST(REASON)
-           3072233 plgrid-gp reinforc plgjpnie PD       0:00      1 (Priority)
-           3072234 plgrid-gp training plgjpnie R        1:23:45   2 r12c01b01,r12c01b02
-           3072235 plgrid    data_prep plgjpnie CG       0:12      1 r10c01b05
-           3072236 plgrid    eval      plgjpnie CF       0:01      1 r10c01b06
-           3072237 plgrid    failed    plgjpnie F        0:00      1 (NonZeroExitCode)
+           3072233 plgrid-gp reinforc plguser  PD       0:00      1 (Priority)
+           3072234 plgrid-gp training plguser  R        1:23:45   2 r12c01b01,r12c01b02
+           3072235 plgrid    data_prep plguser  CG       0:12      1 r10c01b05
+           3072236 plgrid    eval      plguser  CF       0:01      1 r10c01b06
+           3072237 plgrid    failed    plguser  F        0:00      1 (NonZeroExitCode)
 `;
 
 const parsedJobs = parseSqueueOutput(sampleSlurmOutput, 'athena');
