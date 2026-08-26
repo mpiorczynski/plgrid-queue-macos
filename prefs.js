@@ -2,6 +2,7 @@
  * prefs.js
  *
  * Preferences window for PLGrid Queue extension using Libadwaita.
+ * This integrates directly with the GNOME Extensions and Extension Manager apps.
  */
 
 import Adw from 'gi://Adw';
@@ -18,7 +19,7 @@ export default class PlgridQueuePreferences extends ExtensionPreferences {
         // Main Page
         const page = new Adw.PreferencesPage({
             title: _('General'),
-            icon_name: 'dialog-information-symbolic',
+            icon_name: 'preferences-other-symbolic',
         });
         window.add(page);
 
@@ -36,20 +37,31 @@ export default class PlgridQueuePreferences extends ExtensionPreferences {
             text: currentHosts.join(', '),
             show_apply_button: true,
         });
-        hostsEntryRow.connect('apply', () => {
+
+        const saveHosts = () => {
             const raw = hostsEntryRow.get_text();
             const hostList = raw
                 .split(',')
                 .map((s) => s.trim())
                 .filter((s) => s.length > 0);
             settings.set_strv('hosts', hostList.length > 0 ? hostList : ['athena', 'helios']);
-        });
+        };
+
+        hostsEntryRow.connect('apply', saveHosts);
+        hostsEntryRow.connect('entry-activated', saveHosts);
         hostsGroup.add(hostsEntryRow);
+
+        // Polling Group
+        const pollingGroup = new Adw.PreferencesGroup({
+            title: _('Polling & Connection'),
+            description: _('Configure how often and how long SSH squeue commands run.'),
+        });
+        page.add(pollingGroup);
 
         // Refresh Interval SpinRow
         const refreshRow = new Adw.SpinRow({
             title: _('Refresh Interval (seconds)'),
-            subtitle: _('How often to execute squeue --me via SSH (default: 300s = 5m)'),
+            subtitle: _('Interval between squeue queries (default: 300s = 5 min)'),
             adjustment: new Gtk.Adjustment({
                 lower: 30,
                 upper: 3600,
@@ -59,12 +71,12 @@ export default class PlgridQueuePreferences extends ExtensionPreferences {
             }),
         });
         settings.bind('refresh-interval', refreshRow, 'value', Gio.SettingsBindFlags.DEFAULT);
-        hostsGroup.add(refreshRow);
+        pollingGroup.add(refreshRow);
 
         // Connect Timeout SpinRow
         const timeoutRow = new Adw.SpinRow({
             title: _('SSH Connection Timeout (seconds)'),
-            subtitle: _('Timeout for single SSH command execution'),
+            subtitle: _('Timeout for each single SSH command attempt'),
             adjustment: new Gtk.Adjustment({
                 lower: 2,
                 upper: 30,
@@ -74,7 +86,7 @@ export default class PlgridQueuePreferences extends ExtensionPreferences {
             }),
         });
         settings.bind('connect-timeout', timeoutRow, 'value', Gio.SettingsBindFlags.DEFAULT);
-        hostsGroup.add(timeoutRow);
+        pollingGroup.add(timeoutRow);
 
         // Appearance Group
         const appearanceGroup = new Adw.PreferencesGroup({
