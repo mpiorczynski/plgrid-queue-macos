@@ -77,7 +77,7 @@ Host helios
 
 | Make Target | Description |
 |---|---|
-| `make install` | Compiles schemas and copies files to `~/.local/share/gnome-shell/extensions/plgrid-queue@jpniewski` |
+| `make install` | Compiles schemas and copies files to `~/.local/share/gnome-shell/extensions/plgrid-queue@xweinp` |
 | `make enable` | Enables the extension |
 | `make disable` | Disables the extension |
 | `make reload` | Reloads (disables & re-enables) the extension |

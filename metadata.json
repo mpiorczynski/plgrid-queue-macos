@@ -1,9 +1,9 @@
 {
   "name": "PLGrid Queue",
   "description": "Displays status of queued and running Slurm jobs on PLGrid clusters (Athena, Helios) in the top bar.",
-  "uuid": "plgrid-queue@jpniewski",
+  "uuid": "plgrid-queue@xweinp",
   "settings-schema": "org.gnome.shell.extensions.plgrid-queue",
-  "gettext-domain": "plgrid-queue@jpniewski",
+  "gettext-domain": "plgrid-queue@xweinp",
   "shell-version": [
     "45",
     "46",

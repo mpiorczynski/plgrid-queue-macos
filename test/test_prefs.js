@@ -9,7 +9,7 @@ import PlgridQueuePreferences from '../prefs.js';
 console.log('Testing Preferences class...');
 const prefs = new PlgridQueuePreferences({
     metadata: {
-        uuid: 'plgrid-queue@jpniewski',
+        uuid: 'plgrid-queue@xweinp',
         path: '.',
     },
     dir: Gio.File.new_for_path('.'),

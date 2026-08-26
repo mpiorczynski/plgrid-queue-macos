@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<schemalist gettext-domain="plgrid-queue@jpniewski">
+<schemalist gettext-domain="plgrid-queue@xweinp">
   <schema id="org.gnome.shell.extensions.plgrid-queue" path="/org/gnome/shell/extensions/plgrid-queue/">
     <key name="hosts" type="as">
       <default>['athena', 'helios']</default>

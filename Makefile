@@ -1,4 +1,4 @@
-UUID = plgrid-queue@jpniewski
+UUID = plgrid-queue@xweinp
 INSTALL_DIR = $(HOME)/.local/share/gnome-shell/extensions/$(UUID)
 SRC_FILES = metadata.json extension.js indicator.js slurmService.js prefs.js stylesheet.css
 
@@ -40,6 +40,8 @@ pack: schemas
 
 test: schemas
 	gjs -m test/test_parser.js
+	gjs -m test/test_suite.js
+	gjs -m test/test_single_host.js
 
 clean:
 	rm -f schemas/gschemas.compiled
