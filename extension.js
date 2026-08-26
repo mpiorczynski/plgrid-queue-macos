@@ -62,8 +62,9 @@ export default class PlgridQueueExtension extends Extension {
         const requestedIndex = this._settings.get_int('panel-index');
 
         if (panelBoxName === 'left') {
-            // For left box, always place after existing widgets (workspace indicator / Activities)
-            const targetIndex = requestedIndex <= 0 ? count : Math.max(1, Math.min(requestedIndex, count));
+            // Always place after the workspace/activities indicator (index 0).
+            // Math.max(1, ...) ensures we never insert at index 0.
+            const targetIndex = Math.max(1, Math.min(requestedIndex || count, count));
             box.insert_child_at_index(container, targetIndex);
         } else {
             const targetIndex = Math.min(requestedIndex, count);
