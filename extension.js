@@ -14,15 +14,21 @@ export default class PlgridQueueExtension extends Extension {
         this._indicator = new Indicator(this._settings, () => this.openPreferences());
 
         const panelBoxName = this._settings.get_string('panel-box');
+        const boxes = {
+            left: Main.panel._leftBox,
+            center: Main.panel._centerBox,
+            right: Main.panel._rightBox,
+        };
+        const targetBox = boxes[panelBoxName] ?? Main.panel._rightBox;
+        const initialCount = targetBox.get_n_children();
 
         Main.panel.addToStatusArea(
             this.uuid,
             this._indicator,
-            -1,
+            initialCount,
             panelBoxName
         );
 
-        // Ensure correct position relative to workspace switcher / activities
         this._reposition();
 
         this._placementChangedId = this._settings.connect(
@@ -52,17 +58,15 @@ export default class PlgridQueueExtension extends Extension {
             parent.remove_child(container);
         }
 
+        const count = box.get_n_children();
+        const requestedIndex = this._settings.get_int('panel-index');
+
         if (panelBoxName === 'left') {
-            // Guarantee that the workspace indicator / Activities button stays at the far left.
-            const activities = Main.panel.statusArea['activities']?.container;
-            if (activities && box.contains(activities)) {
-                box.insert_child_above(container, activities);
-            } else {
-                box.add_child(container);
-            }
+            // For left box, always place after existing widgets (workspace indicator / Activities)
+            const targetIndex = requestedIndex <= 0 ? count : Math.max(1, Math.min(requestedIndex, count));
+            box.insert_child_at_index(container, targetIndex);
         } else {
-            const totalChildren = box.get_n_children();
-            const targetIndex = Math.min(this._settings.get_int('panel-index'), totalChildren);
+            const targetIndex = Math.min(requestedIndex, count);
             box.insert_child_at_index(container, targetIndex);
         }
     }
