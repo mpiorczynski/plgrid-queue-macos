@@ -23,7 +23,7 @@ export default class PlgridQueuePreferences extends ExtensionPreferences {
         });
         window.add(page);
 
-        // SSH & Hosts Group
+        // SSH Hosts Group
         const hostsGroup = new Adw.PreferencesGroup({
             title: _('Cluster Configuration'),
             description: _('Configure PLGrid cluster host aliases matching your ~/.ssh/config.'),
@@ -53,7 +53,7 @@ export default class PlgridQueuePreferences extends ExtensionPreferences {
 
         // Polling Group
         const pollingGroup = new Adw.PreferencesGroup({
-            title: _('Polling & Connection'),
+            title: _('Polling and Connection'),
             description: _('Configure how often and how long SSH squeue commands run.'),
         });
         page.add(pollingGroup);
