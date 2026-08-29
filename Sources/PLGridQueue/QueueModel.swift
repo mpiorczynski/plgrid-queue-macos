@@ -17,6 +17,10 @@ final class QueueModel: ObservableObject {
     private var pollTask: Task<Void, Never>?
     private var settingsCancellable: AnyCancellable?
     private var pollingStarted = false
+    /// Incremented on every restart/stop so a cancelled refresh task can tell
+    /// whether its state cleanup is still authoritative (i.e. no newer refresh
+    /// has since been started that it would otherwise clobber).
+    private var generation = 0
 
     /// The text shown in the menu bar: `R: {n}  Q: {m}`, or `R: ?  Q: ?` on
     /// total connection failure (mirrors `_updateUI` in `indicator.js`).
@@ -54,6 +58,7 @@ final class QueueModel: ObservableObject {
 
     /// Restarts polling, typically after settings changed or on demand.
     func restart(settings: SettingsStore) {
+        generation += 1
         stop()
         service.cancelInFlight()
         start(settings: settings)
@@ -66,31 +71,48 @@ final class QueueModel: ObservableObject {
 
         let hosts = settings.hosts
         let timeout = settings.effectiveConnectTimeout
+        let gen = generation
 
         refreshTask = Task { @MainActor [service, weak self] in
-            guard let self else { return }
+            // Always clear the pending refresh state, including when the task
+            // is cancelled, so the spinner stops and future refreshes can run.
+            // Guard against clobbering a newer refresh started by a restart:
+            // a changed generation means a restart has taken over ownership.
+            defer {
+                if let self, self.generation == gen {
+                    self.isRefreshing = false
+                    self.refreshTask = nil
+                }
+            }
+
             let result = await service.queryAll(hosts: hosts, timeoutSec: timeout)
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled, let self else { return }
             self.status = result
             self.lastError = result.hasErrors ? "Some clusters unreachable" : nil
-            self.isRefreshing = false
-            self.refreshTask = nil
         }
     }
 
     private func observeSettings(_ settings: SettingsStore) {
+        // Observe DidChange (post-willSet) so we read fresh values when
+        // restarting, rather than the pre-change state that objectWillChange
+        // would expose. Reading the published values from the main queue keeps
+        // the subscription in sync with SwiftUI's mutation ordering.
         settingsCancellable = settings.objectWillChange
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] in
+            .sink { [weak self] _ in
                 guard let self else { return }
-                self.restart(settings: settings)
+                DispatchQueue.main.async {
+                    self.restart(settings: settings)
+                }
             }
     }
 
     private func schedulePolling(settings: SettingsStore) {
-        let interval = TimeInterval(settings.effectiveRefreshInterval)
         pollTask = Task { @MainActor [weak self] in
             while !Task.isCancelled {
+                // Re-read the interval on every iteration so changes take
+                // effect without requiring a full restart of the loop.
+                let interval = TimeInterval(settings.effectiveRefreshInterval)
                 try? await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000))
                 guard !Task.isCancelled, let self else { break }
                 self.refresh(settings: settings)

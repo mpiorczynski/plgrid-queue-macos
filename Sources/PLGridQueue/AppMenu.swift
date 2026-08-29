@@ -8,7 +8,7 @@ import PLGridQueueCore
 /// dock icon, manages launch-at-login registration on macOS 13+, and starts the
 /// queue polling loop once the app finishes launching.
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    private weak var model: QueueModel?
+    private var model: QueueModel?
     private var settings: SettingsStore?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -16,11 +16,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let model, let settings {
             model.start(settings: settings)
         }
-        applyLaunchAtLogin(SettingsStore().launchAtLogin)
+        // Apply the persisted launch-at-login preference, but only when it is
+        // actually enabled so we don't unnecessarily unregister on every launch.
+        if let settings, settings.launchAtLogin {
+            applyLaunchAtLogin(true)
+        }
     }
 
+    /// A menu-bar accessory must stay alive even when all of its windows
+    /// (e.g. the Settings window) are closed.
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-        true
+        false
     }
 
     /// Called by the SwiftUI app to provide dependencies for startup.

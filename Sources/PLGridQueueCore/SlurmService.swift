@@ -85,13 +85,30 @@ public final class SlurmService {
     ///   - timeoutSec: SSH connection timeout in seconds.
     /// - Returns: An aggregated `QueueStatus`.
     public func queryAll(hosts: [String], timeoutSec: Int = 5, sshBinary: String = "/usr/bin/ssh") async -> QueueStatus {
-        var results: [HostResult] = []
+        // Collect results keyed by host so the aggregated order is stable and
+        // matches the configured host order rather than task completion order.
+        var resultsByHost: [String: HostResult] = [:]
         await withTaskGroup(of: HostResult?.self) { group in
             for host in hosts {
                 group.addTask { await self.queryHost(host: host, timeoutSec: timeoutSec, sshBinary: sshBinary) }
             }
             for await result in group {
-                if let result { results.append(result) }
+                if let result { resultsByHost[result.host] = result }
+            }
+        }
+
+        var results: [HostResult] = []
+        for host in hosts {
+            if let result = resultsByHost[host] {
+                results.append(result)
+            }
+        }
+        // Include any host from the query that was not in the requested list
+        // (shouldn't happen, but keeps behaviour safe).
+        let missing = resultsByHost.keys.filter { !hosts.contains($0) }
+        for host in missing.sorted() {
+            if let result = resultsByHost[host] {
+                results.append(result)
             }
         }
 
@@ -135,6 +152,22 @@ public final class SlurmService {
         let stderr: String
     }
 
+    /// Thread-safe accumulator for pipe output read via readability handlers.
+    private final class OutputAccumulator {
+        private let lock = NSLock()
+        private var storage = Data()
+        func append(_ data: Data) {
+            lock.lock()
+            storage.append(data)
+            lock.unlock()
+        }
+        func snapshot() -> Data {
+            lock.lock()
+            defer { lock.unlock() }
+            return storage
+        }
+    }
+
     private enum ProcessError: LocalizedError {
         case nonZeroExit(Int32, String)
         case timeout
@@ -161,20 +194,61 @@ public final class SlurmService {
         process.standardError = stderrPipe
 
         register(process)
-        defer { unregister(process) }
+        defer {
+            unregister(process)
+            stdoutPipe.fileHandleForReading.readabilityHandler = nil
+            stderrPipe.fileHandleForReading.readabilityHandler = nil
+            stdoutPipe.fileHandleForReading.closeFile()
+            stderrPipe.fileHandleForReading.closeFile()
+        }
+
+        // Drain stdout/stderr asynchronously via readability handlers so no
+        // thread blocks waiting for EOF, which keeps hard timeouts safe.
+        let stdoutAccumulator = OutputAccumulator()
+        let stderrAccumulator = OutputAccumulator()
+        let stdoutFH = stdoutPipe.fileHandleForReading
+        let stderrFH = stderrPipe.fileHandleForReading
+
+        stdoutFH.readabilityHandler = { fh in
+            let data = fh.availableData
+            if data.isEmpty {
+                fh.readabilityHandler = nil
+            } else {
+                stdoutAccumulator.append(data)
+            }
+        }
+        stderrFH.readabilityHandler = { fh in
+            let data = fh.availableData
+            if data.isEmpty {
+                fh.readabilityHandler = nil
+            } else {
+                stderrAccumulator.append(data)
+            }
+        }
+
+        // Set the termination handler before starting so a fast-exiting
+        // process cannot race the readiness of the handler.
+        let exitStream = AsyncStream.makeStream(of: Void.self)
+        process.terminationHandler = { _ in exitStream.continuation.yield(()) }
 
         try process.run()
 
-        async let stdoutData = drain(pipe: stdoutPipe.fileHandleForReading)
-        async let stderrData = drain(pipe: stderrPipe.fileHandleForReading)
-
-        let timedOut = await waitForExit(process, timeoutSec: timeoutSec)
+        let timedOut = await waitForExit(
+            exitSignal: exitStream.stream,
+            timeoutSec: timeoutSec
+        )
         if timedOut {
+            process.terminate()
+            // After SIGTERM the pipes may not drain; allow the process a brief
+            // grace period to flush before reading whatever is available.
+            try? await Task.sleep(nanoseconds: 100_000_000)
             throw ProcessError.timeout
         }
 
-        let stdout = String(data: await stdoutData, encoding: .utf8) ?? ""
-        let stderr = String(data: await stderrData, encoding: .utf8) ?? ""
+        try? await Task.sleep(nanoseconds: 50_000_000)
+
+        let stdout = String(data: stdoutAccumulator.snapshot(), encoding: .utf8) ?? ""
+        let stderr = String(data: stderrAccumulator.snapshot(), encoding: .utf8) ?? ""
         let status = process.terminationStatus
 
         guard status == 0 else {
@@ -184,22 +258,29 @@ public final class SlurmService {
         return ProcessOutput(stdout: stdout, stderr: stderr)
     }
 
-    /// Awaits process termination, enforcing a hard timeout in seconds. On
-    /// timeout the process is terminated. Returns `true` if the timeout elapsed
-    /// before the process exited on its own.
-    private func waitForExit(_ process: Process, timeoutSec: Int) async -> Bool {
-        await withCheckedContinuation { continuation in
-            let semaphore = DispatchSemaphore(value: 0)
-            process.terminationHandler = { _ in semaphore.signal() }
-
-            DispatchQueue.global(qos: .utility).async {
-                let timedOut = semaphore.wait(timeout: .now() + .seconds(timeoutSec)) == .timedOut
-                if timedOut {
-                    process.terminate()
-                }
-                continuation.resume(returning: timedOut)
+    /// Awaits the process exit signal or the hard timeout, whichever comes
+    /// first. Returns `true` if the timeout elapsed before the process exited.
+    private func waitForExit(exitSignal: AsyncStream<Void>, timeoutSec: Int) async -> Bool {
+        let timedOut = await withTaskGroup(of: Bool.self) { group -> Bool in
+            group.addTask {
+                var iterator = exitSignal.makeAsyncIterator()
+                _ = await iterator.next()
+                return false
             }
+            group.addTask {
+                try? await Task.sleep(nanoseconds: UInt64(timeoutSec) * 1_000_000_000)
+                return true
+            }
+
+            for await result in group {
+                if !Task.isCancelled {
+                    group.cancelAll()
+                    return result
+                }
+            }
+            return false
         }
+        return timedOut
     }
 
     private func register(_ process: Process) {
@@ -212,14 +293,5 @@ public final class SlurmService {
         lock.lock()
         runningProcesses.removeAll { $0 === process }
         lock.unlock()
-    }
-
-    private func drain(pipe: FileHandle) async -> Data {
-        await withCheckedContinuation { continuation in
-            DispatchQueue.global(qos: .utility).async {
-                let data = pipe.readDataToEndOfFile()
-                continuation.resume(returning: data)
-            }
-        }
     }
 }

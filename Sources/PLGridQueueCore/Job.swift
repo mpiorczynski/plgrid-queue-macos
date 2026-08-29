@@ -93,19 +93,21 @@ public enum SqueueParser {
             let line = rawLine.trimmingCharacters(in: .whitespacesAndNewlines)
             if line.isEmpty { continue }
 
-            // Skip header lines
-            if line.contains("JOBID") && line.contains("PARTITION") {
-                continue
-            }
-
             let isPiped = line.contains("|")
             let tokens = isPiped
                 ? line.split(separator: "|", omittingEmptySubsequences: false).map { String($0) }
                 : line.split(separator: " ", omittingEmptySubsequences: true).map { String($0) }
             guard tokens.count >= 7 else { continue }
 
+            // Skip header lines by checking the leading token, not a substring
+            // match, so a job name containing "JOBID"/"PARTITION" is not dropped.
+            if tokens[0].uppercased() == "JOBID" {
+                continue
+            }
+
             let jobId = String(tokens[0])
-            let partition = isPiped ? tokens[1].replacingOccurrences(of: "*", with: "") : String(tokens[1])
+            let partition = (isPiped ? tokens[1] : String(tokens[1]))
+                .replacingOccurrences(of: #"(\*+)$"#, with: "", options: .regularExpression)
             let name = String(tokens[2])
             let user = String(tokens[3])
             let state = String(tokens[4]).uppercased()

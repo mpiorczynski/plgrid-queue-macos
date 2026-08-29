@@ -29,15 +29,15 @@ final class SettingsStore: ObservableObject {
         return parsed.isEmpty ? ["athena", "helios"] : parsed
     }
 
-    /// Effective refresh interval, clamped to a minimum of 10 seconds (mirrors
-    /// the GNOME extension which uses `Math.max(10, ...)`).
+    /// Effective refresh interval, clamped to the UI minimum of 30 seconds
+    /// (mirrors the GNOME extension which uses `Math.max(10, ...)`).
     var effectiveRefreshInterval: Int {
-        max(10, refreshInterval)
+        max(30, refreshInterval)
     }
 
-    /// Effective connect timeout, clamped to a positive value.
+    /// Effective connect timeout, clamped to the UI minimum of 2 seconds.
     var effectiveConnectTimeout: Int {
-        max(1, connectTimeout)
+        max(2, connectTimeout)
     }
 
     static var userDefaults: UserDefaults {

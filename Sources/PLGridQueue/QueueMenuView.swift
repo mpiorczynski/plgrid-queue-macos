@@ -10,7 +10,6 @@ struct QueueMenuView: View {
     @ObservedObject var model: QueueModel
     @ObservedObject var settings: SettingsStore
 
-    @State private var showRefreshSpin = false
     @State private var copiedMessage: String?
 
     private let hostEmojis: [String: String] = [
@@ -248,12 +247,16 @@ struct QueueMenuView: View {
 
     // MARK: - Formatting helpers
 
-    private static func formatTime(_ date: Date?) -> String {
-        guard let date else { return "--:--:--" }
+    private static let timeFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm:ss"
         formatter.locale = Locale(identifier: "en_US_POSIX")
-        return formatter.string(from: date)
+        return formatter
+    }()
+
+    private static func formatTime(_ date: Date?) -> String {
+        guard let date else { return "--:--:--" }
+        return timeFormatter.string(from: date)
     }
 }
 
