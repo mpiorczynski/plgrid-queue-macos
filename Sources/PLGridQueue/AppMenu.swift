@@ -10,6 +10,7 @@ import PLGridQueueCore
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var model: QueueModel?
     private var settings: SettingsStore?
+    private var settingsWindowController: NSWindowController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -33,6 +34,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func configure(model: QueueModel, settings: SettingsStore) {
         self.model = model
         self.settings = settings
+    }
+
+    /// Presents the preferences window. Uses an explicit AppKit window instead
+    /// of the SwiftUI `Settings` scene, because the responder-chain action that
+    /// opens that scene is unreliable for this menu-bar accessory.
+    func showSettings() {
+        let window: NSWindow
+        if let existing = settingsWindowController?.window {
+            window = existing
+        } else {
+            guard let settings else { return }
+            let hosting = NSHostingController(
+                rootView: SettingsView(settings: settings, appDelegate: self)
+            )
+            let created = NSWindow(contentViewController: hosting)
+            created.title = "PLGrid Queue Preferences"
+            created.styleMask = [.titled, .closable, .miniaturizable]
+            created.setContentSize(NSSize(width: 460, height: 420))
+            created.isReleasedWhenClosed = false
+            created.center()
+
+            let controller = NSWindowController(window: created)
+            settingsWindowController = controller
+            window = created
+        }
+
+        NSApp.activate(ignoringOtherApps: true)
+        window.makeKeyAndOrderFront(nil)
+        // Accessory apps sometimes still keep the window behind; force it to
+        // the front unconditionally.
+        window.orderFrontRegardless()
     }
 
     /// Registers or deregisters the app to launch at login via SMAppService.

@@ -9,6 +9,7 @@ import PLGridQueueCore
 struct QueueMenuView: View {
     @ObservedObject var model: QueueModel
     @ObservedObject var settings: SettingsStore
+    let appDelegate: AppDelegate
 
     @State private var copiedMessage: String?
 
@@ -240,9 +241,7 @@ struct QueueMenuView: View {
     }
 
     private func openSettingsWindow() {
-        // macOS 13 does not expose the `openSettings` environment action, so
-        // route through the AppKit responder chain to the settings scene.
-        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+        appDelegate.showSettings()
     }
 
     // MARK: - Formatting helpers
