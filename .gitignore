@@ -1,5 +1,7 @@
-schemas/gschemas.compiled
+.build/
+.DS_Store
 *.zip
 *.tar.gz
 *.orig
 *~
+build/
