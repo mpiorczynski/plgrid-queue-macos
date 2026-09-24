@@ -26,8 +26,7 @@ struct QueueMenuView: View {
             Divider()
             footer
         }
-        .fixedSize()
-        .frame(minWidth: 240)
+        .frame(width: 300, alignment: .topLeading)
         .padding(.vertical, 4)
     }
 
@@ -132,6 +131,7 @@ struct QueueMenuView: View {
                     Text(job.name)
                         .font(.callout.weight(.semibold))
                         .lineLimit(1)
+                        .truncationMode(.tail)
                     Spacer()
                     Text("#\(job.jobId)")
                         .font(.callout.monospaced())
@@ -177,6 +177,8 @@ struct QueueMenuView: View {
     private func chip(_ text: String) -> some View {
         Text(text)
             .font(.caption2)
+            .lineLimit(1)
+            .truncationMode(.tail)
             .padding(.horizontal, 5)
             .padding(.vertical, 1)
             .background(Color.secondary.opacity(0.15))
