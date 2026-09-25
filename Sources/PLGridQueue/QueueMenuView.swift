@@ -54,8 +54,29 @@ struct QueueMenuView: View {
 
     // MARK: - Content
 
-    @ViewBuilder
+    /// Scrollable host/job list. The menu bar panel is capped in height so long
+    /// queues stay on screen: the host and job sections scroll while the header
+    /// and footer stay pinned.
     private var content: some View {
+        ScrollView(.vertical) {
+            VStack(alignment: .leading, spacing: 0) {
+                contentBody
+            }
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+            .padding(.vertical, 4)
+        }
+        .frame(maxHeight: maxContentHeight, alignment: .top)
+    }
+
+    /// Upper bound for the scrolling area, derived from the screen so the panel
+    /// never grows past the visible frame on small displays.
+    private var maxContentHeight: CGFloat {
+        let screenHeight = NSScreen.main?.visibleFrame.height ?? 900
+        return min(560, screenHeight * 0.55)
+    }
+
+    @ViewBuilder
+    private var contentBody: some View {
         if let status = model.status {
             ForEach(status.hosts, id: \.host) { hostResult in
                 hostSection(hostResult)
